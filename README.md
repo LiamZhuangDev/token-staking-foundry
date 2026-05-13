@@ -44,26 +44,16 @@ Create remapping `remappings.txt` to translate Solidity import paths into actual
 @openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
 forge-std/=lib/forge-std/src/
 ```
-
-```shell
-forge build
-```
 ### Create `GopherStaking.sol`
 See https://github.com/LiamZhuangDev/token-staking-foundry/commit/8fcdc9ed30af6503ccfb1f2fce14ccb22c41f3fd
 ```
 Formula to calculate pending rewards = (user.amount * accRewardPerShare) / decimals - user.rewardDebt
 ```
----
+
 ### Build
 
 ```shell
 $ forge build
-```
-
-### Test
-
-```shell
-$ forge test
 ```
 
 ### Format
@@ -71,6 +61,113 @@ $ forge test
 ```shell
 $ forge fmt
 ```
+
+### Deploy
+```
+src/
+├── GopherToken.sol
+└── GopherStaking.sol
+
+script/
+└── Deploy.s.sol
+
+foundry.toml
+```
+- Create `Deploy.s.sol`
+  ```solidity
+  uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+
+  vm.startBroadcast(deployerPrivateKey);
+
+  // deploy GopherToken
+  GopherToken token = new GopherToken();
+
+  // deploy GopherStaking
+  uint256 rewardPerBlock = 1 ether;
+  GopherStaking staking = new GopherStaking(address(token), rewardPerBlock);
+
+  vm.stopBroadcast();
+  ```
+- Run forge script to deploy
+  ```shell
+  # load environment vars from the .env file into the current shell session
+  source .env
+
+  forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL --broadcast
+  ```
+
+### Interaction
+
+```shell
+# Approve staking contract
+# !!!must run first or reverted due to ERC20InsufficientAllowance
+cast send <TOKEN_ADDRESS> \
+  "approve(address, uint256)" \
+  <STAKING_ADDRESS> \
+  100000000000000000000 \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --rpc-url $RPC_URL
+
+# Stak
+cast send <STAKING_ADDRESS> \
+  "stake(uint256)" \
+  100000000000000000000 \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --rpc-url $RPC_URL
+
+# Claim rewards only
+cast send <STAKING_ADDRESS> \
+  "withdraw(uint256)" \
+  0 \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --rpc-url $RPC_URL
+
+# Check Deployer Token Balance
+cast call <TOKEN_ADDRESS> \
+  "balanceOf(address)(uint256)" \
+  <DEPLOYER_ADDRESS> \
+  --rpc-url $RPC_URL
+
+# Withdraw stake
+cast send <STAKING_ADDRESS> \
+  "withdraw(uint256)" \
+  50000000000000000000 \
+  --private-key $DEPLOYER_PRIVATE_KEY \
+  --rpc-url $RPC_URL
+```
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Test
+
+```shell
+$ forge test
+```
+
+
 
 ### Gas Snapshots
 
