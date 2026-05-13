@@ -49,6 +49,7 @@ forge-std/=lib/forge-std/src/
 forge build
 ```
 ### Create `GopherStaking.sol`
+See https://github.com/LiamZhuangDev/token-staking-foundry/commit/8fcdc9ed30af6503ccfb1f2fce14ccb22c41f3fd
 ```
 Formula to calculate pending rewards = (user.amount * accRewardPerShare) / decimals - user.rewardDebt
 ```

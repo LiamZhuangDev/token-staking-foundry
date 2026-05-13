@@ -30,10 +30,7 @@ contract GopherStaking is Ownable {
 
     mapping(address => UserInfo) public users;
 
-    constructor(
-        address _token,
-        uint256 _rewardPerBlock
-    ) Ownable(msg.sender) {
+    constructor(address _token, uint256 _rewardPerBlock) Ownable(msg.sender) {
         token = IERC20(_token);
         rewardPerBlock = _rewardPerBlock;
         lastRewardBlock = block.number; // block is a global variable provided by the EVM/Solidity runtime.
@@ -72,7 +69,7 @@ contract GopherStaking is Ownable {
         require(amount > 0, "Cannot stake 0");
 
         UserInfo storage user = users[msg.sender];
-        
+
         _updatePool();
 
         // pay pending rewards first
@@ -83,7 +80,7 @@ contract GopherStaking is Ownable {
 
         // transfer staked tokens to the contract
         token.safeTransferFrom(msg.sender, address(this), amount);
-        
+
         // update user info
         user.amount += amount;
         user.rewardDebt = (user.amount * accRewardPerShare) / 1e18;
@@ -103,7 +100,7 @@ contract GopherStaking is Ownable {
         if (pending > 0) {
             token.safeTransfer(msg.sender, pending);
         }
-        
+
         // update user info before transferring tokens out to prevent reentrancy issues
         if (amount > 0) {
             user.amount -= amount;
