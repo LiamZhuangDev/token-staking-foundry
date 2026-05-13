@@ -30,6 +30,11 @@ contract GopherStaking is Ownable {
 
     mapping(address => UserInfo) public users;
 
+    event Staked(address indexed user, uint256 amount);
+    event Withdrawn(address indexed user, uint256 amount);
+    event RewardPerBlockUpdated(uint256 newRewardPerBlock);
+    event RewardClaimed(address indexed user, uint256 amount);
+
     constructor(address _token, uint256 _rewardPerBlock) Ownable(msg.sender) {
         token = IERC20(_token);
         rewardPerBlock = _rewardPerBlock;
@@ -76,6 +81,8 @@ contract GopherStaking is Ownable {
         uint256 pending = (user.amount * accRewardPerShare) / 1e18 - user.rewardDebt;
         if (pending > 0) {
             token.safeTransfer(msg.sender, pending);
+
+            emit RewardClaimed(msg.sender, pending);
         }
 
         // transfer staked tokens to the contract
@@ -86,6 +93,8 @@ contract GopherStaking is Ownable {
         user.rewardDebt = (user.amount * accRewardPerShare) / 1e18;
 
         totalStaked += amount;
+
+        emit Staked(msg.sender, amount);
     }
 
     // if amount is 0, it will just claim rewards without withdrawing any staked tokens
@@ -99,6 +108,8 @@ contract GopherStaking is Ownable {
         uint256 pending = (user.amount * accRewardPerShare) / 1e18 - user.rewardDebt;
         if (pending > 0) {
             token.safeTransfer(msg.sender, pending);
+
+            emit RewardClaimed(msg.sender, pending);
         }
 
         // update user info before transferring tokens out to prevent reentrancy issues
@@ -110,6 +121,8 @@ contract GopherStaking is Ownable {
 
         // update reward debt after withdrawal to reflect the new staked amount
         user.rewardDebt = (user.amount * accRewardPerShare) / 1e18;
+
+        emit Withdrawn(msg.sender, amount);
     }
 
     function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
@@ -117,6 +130,8 @@ contract GopherStaking is Ownable {
         _updatePool();
         // set new reward per block
         rewardPerBlock = _rewardPerBlock;
+
+        emit RewardPerBlockUpdated(_rewardPerBlock);
     }
 
     function fund(uint256 amount) external onlyOwner {
