@@ -52,10 +52,7 @@ contract GopherStakingTest is Test {
         assertEq(staking.totalStaked(), amount);
 
         // alice wallet balance reduced
-        assertEq(
-            token.balanceOf(alice),
-            INITIAL_USER_BALANCE - amount
-        );
+        assertEq(token.balanceOf(alice), INITIAL_USER_BALANCE - amount);
     }
 
     function testCannotStakeZero() public {
@@ -147,10 +144,7 @@ contract GopherStakingTest is Test {
         assertEq(staking.totalStaked(), 60 ether);
 
         // reward debt should reflect new stake amount
-        assertEq(
-            rewardDebt,
-            (60 ether * staking.accRewardPerShare()) / 1e18
-        );
+        assertEq(rewardDebt, (60 ether * staking.accRewardPerShare()) / 1e18);
     }
 
     function testCannotWithdrawMoreThanStaked() public {
@@ -161,7 +155,6 @@ contract GopherStakingTest is Test {
 
         vm.stopPrank();
     }
-
 
     /*//////////////////////////////////////////////////////////////
                         MULTI USER TESTS
