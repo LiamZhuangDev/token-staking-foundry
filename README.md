@@ -1,24 +1,7 @@
-## Foundry
-
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
-
-Foundry consists of:
-
-- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
-- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
-- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
-- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
-
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
 ### Create project
 ```shell
-forge init token-staking-foundry
-cd token-staking-foundry
+$ forge init token-staking-foundry
+$ cd token-staking-foundry
 ```
 
 ### Create `GopherToken.sol`
@@ -36,7 +19,7 @@ contract GopherToken is ERC20 {
 ```
 
 ```shell
-forge install OpenZeppelin/openzeppelin-contracts
+$ forge install OpenZeppelin/openzeppelin-contracts
 ```
 
 Create remapping `remappings.txt` to translate Solidity import paths into actual filesystem paths
@@ -73,6 +56,15 @@ script/
 
 foundry.toml
 ```
+- Start Anvil local node
+  ```shell
+  anvil
+  ```
+- Update vars in `.env`
+  ```
+  DEPLOYER_PRIVATE_KEY=0x<PRIVATE_KEY_ANVIL_PROVIDED>
+  RPC_URL=http://127.0.0.1:8545
+  ```
 - Create `Deploy.s.sol`
   ```solidity
   uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -91,9 +83,9 @@ foundry.toml
 - Run forge script to deploy
   ```shell
   # load environment vars from the .env file into the current shell session
-  source .env
+  $ source .env
 
-  forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL --broadcast
+  $ forge script script/Deploy.s.sol:Deploy --rpc-url $RPC_URL --broadcast
   ```
 
 ### Interaction
@@ -135,68 +127,83 @@ cast send <STAKING_ADDRESS> \
   --private-key $DEPLOYER_PRIVATE_KEY \
   --rpc-url $RPC_URL
 ```
----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 ### Test
+- Create `GopherStaking.t.sol` 
+  ```solidity
+  contract GopherStakingTest is Test {
+      GopherToken public token;
+      GopherStaking public staking;
+      address public owner = address(this);
+      address public alice = address(1);
+      address public bob = address(2);
+      uint256 public constant INITIAL_USER_BALANCE = 1_000 ether;
+      uint256 public constant REWARD_PER_BLOCK = 1 ether;
+      
+      function setUp() public {
+          // deploy contracts
+          token = new GopherToken();
+          staking = new GopherStaking(address(token), REWARD_PER_BLOCK);
+          // give users tokens
+          token.transfer(alice, INITIAL_USER_BALANCE);
+          token.transfer(bob, INITIAL_USER_BALANCE);
+          // fund staking contract with rewards
+          uint256 rewardPool = 100_000 ether;
+          token.transfer(address(staking), rewardPool);
+      }
 
-```shell
-$ forge test
-```
+      /*//////////////////////////////////////////////////////////////
+                              STAKE TESTS
+      //////////////////////////////////////////////////////////////*/
+      function testStake() public {
+          uint256 amount = 100 ether;
+          vm.startPrank(alice);
+          token.approve(address(staking), amount);
+          staking.stake(amount);
+          vm.stopPrank();
 
+          (uint256 stakedAmount, uint256 rewardDebt) = staking.users(alice);
 
+          assertEq(stakedAmount, amount);
+          assertEq(rewardDebt, 0);
+          assertEq(staking.totalStaked(), amount);
+          
+          // alice wallet balance reduced
+          assertEq(
+              token.balanceOf(alice),
+              INITIAL_USER_BALANCE - amount
+          );
+      }
+
+      // other tests
+  }
+  ```
+- Run forge test
+  ```shell
+  $ forge test
+  ```
+- Run test with Gas Report
+  ```shell
+  forge test --gas-report
+  ```
+- Test Coverage
+  ```shell
+  $ forge coverage
+  ```
+- How to find missing branches
+  - Generate coverage file
+  ```shell
+  $ forge coverage --report debug > coverage.txt
+  ```
+  - and look for `hits: 0` in `coverage.txt`
+  ```
+  Branch (branch: 1, path: 0)
+  hits: 0
+  ```
+  - add test function to improve the coverage
 
 ### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+- creates a gas usage snapshot file for your tests, mainly used for detecting gas regressions
+  ```shell
+  $ forge snapshot
+  ```
