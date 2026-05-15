@@ -11,7 +11,7 @@ contract GopherStakingTest is Test {
     GopherToken public token;
     GopherStaking public staking;
 
-    address public owner = address(this);
+    address public admin = address(this);
     address public alice = address(1);
     address public bob = address(2);
 
@@ -26,7 +26,7 @@ contract GopherStakingTest is Test {
         GopherStaking implementation = new GopherStaking();
 
         // encode initialize call
-        bytes memory initData = abi.encodeCall(GopherStaking.initialize, (msg.sender, address(token), REWARD_PER_BLOCK));
+        bytes memory initData = abi.encodeCall(GopherStaking.initialize, (admin, address(token), REWARD_PER_BLOCK));
 
         // deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
