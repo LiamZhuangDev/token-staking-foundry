@@ -12,6 +12,8 @@ contract Deploy is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
+        address admin = vm.addr(deployerPrivateKey);
+
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy token
@@ -23,7 +25,7 @@ contract Deploy is Script {
         uint256 rewardPerBlock = 1 ether;
 
         // encode initialize call
-        bytes memory initData = abi.encodeCall(GopherStaking.initialize, (msg.sender, address(token), rewardPerBlock));
+        bytes memory initData = abi.encodeCall(GopherStaking.initialize, (admin, address(token), rewardPerBlock));
 
         // deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
