@@ -241,6 +241,163 @@ Execute another contract’s bytecode in my storage context.
 | msg.sender       | User           |
 
 ```
+### How UUPS proxy works when users call `stake` function
+```solidity
+// treat proxy as staking contract
+GopherStaking staking = GopherStaking(address(proxy));
+```
+
+```
+USER CALLS:
+
+staking.stake(100)
+
+IMPORTANT:
+staking == proxy address
+NOT implementation address
+
+┌──────────────────────────┐
+│ Solidity ABI Encoding    │
+└──────────────────────────┘
+
+Solidity converts:
+
+stake(100)
+
+into calldata:
+
+0xa694fc3a + encoded(100)
+
+where:
+0xa694fc3a = function selector for "stake(uint256)"
+
+
+========================================================
+STEP 1 — EVM CALLS THE PROXY
+========================================================
+
+User
+  │
+  │ CALL proxyAddress
+  │ calldata = stake(100)
+  ▼
+
+┌──────────────────────────┐
+│ ERC1967Proxy             │
+│ address = 0xPROXY        │
+└──────────────────────────┘
+
+
+Proxy receives:
+
+stake(uint256)
+
+
+BUT...
+
+Proxy contract itself does NOT contain:
+
+function stake(...)
+
+So Solidity/EVM executes:
+
+fallback()
+
+
+========================================================
+STEP 2 — PROXY FALLBACK EXECUTES
+========================================================
+
+┌──────────────────────────┐
+│ fallback()               │
+└──────────────────────────┘
+
+fallback() does roughly:
+
+implementation = storageSlot[IMPLEMENTATION_SLOT]
+
+delegatecall(
+    implementation,
+    original calldata
+)
+
+
+So now:
+
+delegatecall(
+    0xIMPLEMENTATION,
+    "stake(100)"
+)
+
+
+========================================================
+STEP 3 — IMPLEMENTATION CODE RUNS
+========================================================
+
+┌──────────────────────────┐
+│ GopherStaking            │
+│ address = 0xIMPL         │
+└──────────────────────────┘
+
+Implementation code executes:
+
+function stake(uint256 amount) {
+    totalStaked += amount;
+}
+
+
+CRITICAL PART:
+
+Because this is DELEGATECALL:
+
+storage writes happen in PROXY storage
+
+
+So:
+
+totalStaked += 100
+
+actually means:
+
+proxy.slotX += 100
+
+
+NOT:
+
+implementation.slotX += 100
+
+
+========================================================
+FINAL RESULT
+========================================================
+
+Implementation storage:
+┌───────────────┐
+│ totalStaked=0 │  ← unchanged
+└───────────────┘
+
+
+Proxy storage:
+┌─────────────────┐
+│ totalStaked=100 │  ← actual state
+└─────────────────┘
+
+
+========================================================
+VERY IMPORTANT MENTAL MODEL
+========================================================
+
+Implementation:
+    CODE ONLY
+
+Proxy:
+    STATE/STORAGE ONLY
+
+delegatecall means:
+
+"Run implementation CODE against proxy STORAGE"
+
+```
 ### How upgrade works later
 Deploy a new implementation:
 ```solidity

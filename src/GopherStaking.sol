@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 
-contract GopherStaking is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+contract GopherStaking is Initializable, AccessControlUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     // staking token == reward token
@@ -26,6 +26,12 @@ contract GopherStaking is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     // total amount of tokens staked
     uint256 public totalStaked;
+
+    // ========================
+    // Roles
+    // ========================
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE"); // can upgrade the contract implementation
+    bytes32 public constant REWARD_MANAGER_ROLE = keccak256("REWARD_MANAGER_ROLE"); // can change reward rate and fund the reward pool
 
     struct UserInfo {
         uint256 amount; // How many tokens the user has staked.
@@ -46,15 +52,22 @@ contract GopherStaking is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _token, uint256 _rewardPerBlock) public initializer {
-        __Ownable_init(msg.sender);
+    function initialize(address admin, address _token, uint256 _rewardPerBlock) public initializer {
+        __AccessControl_init();
 
         token = IERC20(_token);
         rewardPerBlock = _rewardPerBlock;
         lastRewardBlock = block.number;
+
+        // ============================
+        // Setup roles
+        // ============================
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(UPGRADER_ROLE, admin);
+        _grantRole(REWARD_MANAGER_ROLE, admin);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
 
     function _updatePool() internal {
         if (block.number <= lastRewardBlock) {
@@ -140,7 +153,7 @@ contract GopherStaking is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit Withdrawn(msg.sender, amount);
     }
 
-    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyOwner {
+    function setRewardPerBlock(uint256 _rewardPerBlock) external onlyRole(REWARD_MANAGER_ROLE) {
         // update pool to distribute rewards up to the current block before changing the reward rate
         _updatePool();
         // set new reward per block
@@ -149,7 +162,7 @@ contract GopherStaking is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit RewardPerBlockUpdated(_rewardPerBlock);
     }
 
-    function fund(uint256 amount) external onlyOwner {
+    function fund(uint256 amount) external onlyRole(REWARD_MANAGER_ROLE) {
         token.safeTransferFrom(msg.sender, address(this), amount);
     }
 }

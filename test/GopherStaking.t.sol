@@ -26,7 +26,7 @@ contract GopherStakingTest is Test {
         GopherStaking implementation = new GopherStaking();
 
         // encode initialize call
-        bytes memory initData = abi.encodeCall(GopherStaking.initialize, (address(token), REWARD_PER_BLOCK));
+        bytes memory initData = abi.encodeCall(GopherStaking.initialize, (msg.sender, address(token), REWARD_PER_BLOCK));
 
         // deploy proxy
         ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
