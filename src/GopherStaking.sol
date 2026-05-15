@@ -5,11 +5,15 @@ import "@openzeppelin/contracts/interfaces/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract GopherStaking is Ownable {
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+
+contract GopherStaking is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     // staking token == reward token
-    IERC20 public immutable token;
+    IERC20 public token;
 
     // reward tokens distributed per block
     uint256 public rewardPerBlock;
@@ -35,11 +39,22 @@ contract GopherStaking is Ownable {
     event RewardPerBlockUpdated(uint256 newRewardPerBlock);
     event RewardClaimed(address indexed user, uint256 amount);
 
-    constructor(address _token, uint256 _rewardPerBlock) Ownable(msg.sender) {
+    // The implementation contract should NEVER be initialized directly.
+    // Constructor runs ONCE when implementation is deployed.
+    // It permanently locks initialization on the implementation contract.
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _token, uint256 _rewardPerBlock) public initializer {
+        __Ownable_init(msg.sender);
+
         token = IERC20(_token);
         rewardPerBlock = _rewardPerBlock;
-        lastRewardBlock = block.number; // block is a global variable provided by the EVM/Solidity runtime.
+        lastRewardBlock = block.number;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     function _updatePool() internal {
         if (block.number <= lastRewardBlock) {
