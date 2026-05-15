@@ -55,7 +55,7 @@ contract GopherStaking is Initializable, AccessControlUpgradeable, UUPSUpgradeab
     function initialize(address admin, address _token, uint256 _rewardPerBlock) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
-        
+
         token = IERC20(_token);
         rewardPerBlock = _rewardPerBlock;
         lastRewardBlock = block.number;
