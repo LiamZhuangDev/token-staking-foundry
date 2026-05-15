@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {GopherToken} from "../src/GopherToken.sol";
 import {GopherStaking} from "../src/GopherStaking.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract GopherStakingTest is Test {
     GopherToken public token;
@@ -18,16 +19,29 @@ contract GopherStakingTest is Test {
     uint256 public constant REWARD_PER_BLOCK = 1 ether;
 
     function setUp() public {
-        // deploy contracts
+        // deploy token
         token = new GopherToken();
-        staking = new GopherStaking(address(token), REWARD_PER_BLOCK);
+
+        // deploy staking implementation
+        GopherStaking implementation = new GopherStaking();
+
+        // encode initialize call
+        bytes memory initData = abi.encodeCall(GopherStaking.initialize, (address(token), REWARD_PER_BLOCK));
+
+        // deploy proxy
+        ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+
+        // interact with proxy as staking contract
+        staking = GopherStaking(address(proxy));
 
         // give users tokens
         token.transfer(alice, INITIAL_USER_BALANCE);
+
         token.transfer(bob, INITIAL_USER_BALANCE);
 
         // fund staking contract with rewards
         uint256 rewardPool = 100_000 ether;
+
         token.transfer(address(staking), rewardPool);
     }
 
