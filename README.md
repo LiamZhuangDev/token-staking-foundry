@@ -95,20 +95,20 @@ foundry.toml
 # !!!must run first or reverted due to ERC20InsufficientAllowance
 cast send <TOKEN_ADDRESS> \
   "approve(address, uint256)" \
-  <STAKING_ADDRESS> \
+  <STAKING_ADDRESS or PROXY_ADDRESS> \
   100000000000000000000 \
   --private-key $DEPLOYER_PRIVATE_KEY \
   --rpc-url $RPC_URL
 
-# Stak
-cast send <STAKING_ADDRESS> \
+# Stake
+cast send <STAKING_ADDRESS or PROXY_ADDRESS> \
   "stake(uint256)" \
   100000000000000000000 \
   --private-key $DEPLOYER_PRIVATE_KEY \
   --rpc-url $RPC_URL
 
 # Claim rewards only
-cast send <STAKING_ADDRESS> \
+cast send <STAKING_ADDRESS or PROXY_ADDRESS> \
   "withdraw(uint256)" \
   0 \
   --private-key $DEPLOYER_PRIVATE_KEY \
@@ -121,7 +121,7 @@ cast call <TOKEN_ADDRESS> \
   --rpc-url $RPC_URL
 
 # Withdraw stake
-cast send <STAKING_ADDRESS> \
+cast send <STAKING_ADDRESS or PROXY_ADDRESS> \
   "withdraw(uint256)" \
   50000000000000000000 \
   --private-key $DEPLOYER_PRIVATE_KEY \
@@ -149,6 +149,34 @@ cast send <STAKING_ADDRESS> \
           token.transfer(bob, INITIAL_USER_BALANCE);
           // fund staking contract with rewards
           uint256 rewardPool = 100_000 ether;
+          token.transfer(address(staking), rewardPool);
+      }
+
+      // setUp when using UUPS proxy pattern
+      function setUp() public {
+          // deploy token
+          token = new GopherToken();
+
+          // deploy staking implementation
+          GopherStaking implementation = new GopherStaking();
+
+          // encode initialize call
+          bytes memory initData = abi.encodeCall(GopherStaking.initialize, (admin, address(token), REWARD_PER_BLOCK));
+
+          // deploy proxy
+          ERC1967Proxy proxy = new ERC1967Proxy(address(implementation), initData);
+
+          // interact with proxy as staking contract
+          staking = GopherStaking(address(proxy));
+
+          // give users tokens
+          token.transfer(alice, INITIAL_USER_BALANCE);
+
+          token.transfer(bob, INITIAL_USER_BALANCE);
+
+          // fund staking contract with rewards
+          uint256 rewardPool = 100_000 ether;
+
           token.transfer(address(staking), rewardPool);
       }
 
@@ -413,3 +441,56 @@ Since proxy storage remains untouched:
   - staking positions stay
 
 only logic changes.
+
+### Role-based Access Control
+- Inherit from `AccessControlUpgradeable` contract
+- Define Roles
+- Init Access Control and 
+- Grant Roles
+
+```solidity
+contract GopherStaking is Initializable, AccessControlUpgradeable, UUPSUpgradeable {
+
+    // ========================
+    // Roles
+    // ========================
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE"); // can upgrade the contract implementation
+    bytes32 public constant REWARD_MANAGER_ROLE = keccak256("REWARD_MANAGER_ROLE"); // can change reward rate and fund the reward pool
+
+    function initialize(address admin, address _token, uint256 _rewardPerBlock) public initializer {
+        __AccessControl_init();
+
+        // ============================
+        // Setup roles
+        // ============================
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(UPGRADER_ROLE, admin);
+        _grantRole(REWARD_MANAGER_ROLE, admin);
+    }
+}
+```
+- `DEFAULT_ADMIN_ROLE` is the super admin role in OpenZeppelin’s RBAC system.
+It has special powers:
+  - can grant roles
+  - can revoke roles
+  - is the admin of all roles by default
+  - can even manage itself
+
+  Think of it like:
+  ```
+  Root Admin
+    ├── UPGRADER_ROLE
+    ├── REWARD_MANAGER_ROLE
+    └── any future roles
+  ```
+
+  Example:
+  ```solidity
+  _grantRole(DEFAULT_ADMIN_ROLE, admin);
+  ```
+  means admin can later do:
+  ```solidity
+  grantRole(UPGRADER_ROLE, alice);
+
+  revokeRole(REWARD_MANAGER_ROLE, bob);
+  ```
