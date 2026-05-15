@@ -207,3 +207,52 @@ cast send <STAKING_ADDRESS> \
   ```shell
   $ forge snapshot
   ```
+---
+### Upgrade to use the Universal Upgradeable Proxy Standard (UUPS) proxy pattern
+- Replace constructor with `initialize()`
+- Inherit from OZ contracts:
+  - Initializable
+  - OwnableUpgradeable
+  - UUPSUpgradeable
+- Add `_authorizeUpgrade()`
+
+### Updated Foundry Deploy Script for UUPS
+You now deploy:
+- implementation
+- ERC1967Proxy
+- initialize through proxy
+```
+User
+  ↓
+Proxy
+  ↓ delegatecall
+Implementation
+
+Vars are defined by the implementation contract layout, but their actual values are stored in the proxy because of delegatecall.
+
+delegatecall literally means:
+Execute another contract’s bytecode in my storage context.
+
+| Thing            | Value          |
+| ---------------- | -------------- |
+| Code executed    | Implementation |
+| Storage modified | Proxy          |
+| address(this)    | Proxy          |
+| msg.sender       | User           |
+
+```
+### How upgrade works later
+Deploy a new implementation:
+```solidity
+GopherStakingV2 implV2 = new GopherStakingV2();
+```
+Then call through proxy:
+```solidity
+staking.upgradeToAndCall(address(implV2), "");
+```
+Since proxy storage remains untouched:
+  - balances stay
+  - rewards stay
+  - staking positions stay
+
+only logic changes.
