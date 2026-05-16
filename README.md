@@ -494,3 +494,8 @@ It has special powers:
 
   revokeRole(REWARD_MANAGER_ROLE, bob);
   ```
+
+  ### TODOs
+  - multi-pool support
+  - rewards range [start, end]
+  - ETH deposit, withdraw and reward
